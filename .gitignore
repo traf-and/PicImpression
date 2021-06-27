@@ -161,3 +161,4 @@ env/
 
 # work folder
 In_work/
+/checkpoints/

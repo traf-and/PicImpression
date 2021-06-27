@@ -7,7 +7,8 @@ class GRUTextDecoder(nn.Module):
         super(GRUTextDecoder, self).__init__()
         self.hidden_size = hidden_size
 
-        self.embedding = nn.Embedding(output_size, hidden_size)
+        self.bos_token = output_size + 1
+        self.embedding = nn.Embedding(output_size, hidden_size + 1)
         self.gru = nn.GRU(hidden_size, hidden_size)
         self.out = nn.Linear(hidden_size, output_size)
         self.softmax = nn.LogSoftmax(dim=1)
