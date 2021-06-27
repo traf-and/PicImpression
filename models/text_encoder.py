@@ -63,9 +63,8 @@ class RUGPTTextEncoder(torch.nn.Module):
     def tokenize_batch(
             self,
             texts: tp.List[str],
-            max_seq_length: int = -1
+            max_seq_length: int = 20
     ) -> tp.Tuple[torch.Tensor, torch.Tensor]:
-        max_seq_length = max_seq_length if max_seq_length != -1 else max([len(t) for t in texts])
         return get_text_batch(
             texts,
             self.tokenizer,
@@ -73,8 +72,8 @@ class RUGPTTextEncoder(torch.nn.Module):
             use_cpu=True
         )
 
-    def forward(self, x: torch.Tensor, **kwargs):
-        x = self.model(x, **kwargs)[0][(x == self.eos_token_id).nonzero(as_tuple=True)]
+    def forward(self, x: torch.Tensor, attention_mask: torch.Tensor):
+        x = self.model(x, attention_mask=attention_mask)[0][(x == self.eos_token_id).nonzero(as_tuple=True)]
         x = self.projection(x)
         projection_len = torch.norm(x, dim=-1, keepdim=True)
         return x / projection_len
@@ -106,5 +105,8 @@ if __name__ == '__main__':
         d_in=768,
         d_out=1024
     ).cpu()
+    sd = torch.load('text_encoder.ckpt')
+    encoder.load_state_dict(sd)
 
-    encoder.tokenize_batch(['хуй говна'])
+    tokens, att_mask = encoder.tokenize_batch(['кек'])
+    print(encoder(tokens, att_mask)[0])
