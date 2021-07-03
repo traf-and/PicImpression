@@ -1,10 +1,14 @@
+from os import path
 import torch
 import typing as tp
 import pytorch_lightning as pl
-
+from torch import nn
+import torch.optim as optim
+from torch.utils.data import dataset, DataLoader
+from transformers import GPT2Tokenizer 
 from models.text_decoder import GRUTextDecoder
 from models.text_encoder import RUGPTTextEncoder
-
+from models.dataset_create.text_data import Text_Dataset
 
 class LightningEngine(pl.LightningModule):
     def __init__(
@@ -12,7 +16,7 @@ class LightningEngine(pl.LightningModule):
             text_encoder: RUGPTTextEncoder,
             text_decoder: GRUTextDecoder,
             criterion: torch.nn.Module,
-            optimizer: torch.optim.optimizer.Optimizer
+            optimizer: optim
     ):
         super(LightningEngine, self).__init__()
         self.text_encoder = text_encoder
@@ -20,15 +24,13 @@ class LightningEngine(pl.LightningModule):
         self.criterion = criterion
 
         self.optimizer = optimizer
-        self.save_hyperparameters()
 
     def training_step(self, batch, batch_idx):
         tokenized_text, att_mask = batch
         # B, SeqLength // B, 123
         hidden = self.text_encoder(tokenized_text, att_mask)  # B, 1024
-
         loss = torch.Tensor([0.0])
-        decoder_input = torch.Tensor([[self.text_decoder.bos_token]]).to(self.text_decoder.device)
+        decoder_input = torch.LongTensor([[self.text_decoder.bos_token]]).to(next(self.parameters()).device)
         for i in range(tokenized_text.shape[1]):
             to_predict = tokenized_text[:, i]
             output, hidden = self.text_decoder(decoder_input, hidden)
@@ -40,3 +42,27 @@ class LightningEngine(pl.LightningModule):
 
     def configure_optimizers(self):
         return self.optimizer
+
+
+if __name__ == '__main__':
+    encoder = RUGPTTextEncoder(
+        'sberbank-ai/rugpt3small_based_on_gpt2',
+        eos_token_id=2,
+        d_in=768,
+        d_out=1024
+    ).cpu()
+    sd = torch.load('/home/artem/proj/PictureToText/In_work/text_encoder.ckpt')
+    encoder.load_state_dict(sd)
+    
+    path = '/home/artem/proj/PictureToText/Pretrain_DS/prose.csv'
+    data_set = Text_Dataset(encoder.tokenizer, path)
+    data = DataLoader(data_set, batch_size=1, num_workers=8, pin_memory=True, collate_fn=data_set.collate_fn)
+    decoder = GRUTextDecoder(output_size=len(encoder.tokenizer))
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(decoder.parameters(), lr=1e-3)
+    model = LightningEngine(encoder, decoder, criterion=criterion, optimizer=optimizer)
+    trainer = pl.Trainer(gpus=0)
+    trainer.fit(model, data)
+
+    #tokens, att_mask = encoder.tokenize_batch(['МОлодая красивая девушка с востока. Натуральный цвет волос темный, в данном случае милированные. Милая улыбка, красивые темные глаза. Приблизительный возраст от двадцати до двадцати семи лет. Предположительно студентка гуманитарного факультета. '])
+    #print(encoder(tokens, att_mask)[0])
