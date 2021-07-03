@@ -27,15 +27,17 @@ class LightningEngine(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         tokenized_text, att_mask = batch
-        # B, SeqLength // B, 123
-        hidden = self.text_encoder(tokenized_text, att_mask)  # B, 1024
-        loss = torch.Tensor([0.0])
-        decoder_input = torch.LongTensor([[self.text_decoder.bos_token]]).to(next(self.parameters()).device)
+
+        hidden = self.text_encoder(tokenized_text, att_mask).unsqueeze(0)  # B, 1024
+        loss = torch.Tensor([0.0]).to(next(self.model.parameters()).device)
+        decoder_input = torch.LongTensor([self.text_decoder.bos_token for _ in range(tokenized_text.shape[0])])
+        decoder_input = decoder_input.to(next(self.model.parameters()).device)
         for i in range(tokenized_text.shape[1]):
             to_predict = tokenized_text[:, i]
             output, hidden = self.text_decoder(decoder_input, hidden)
-            loss += self.criterion(output, to_predict)
+            loss += self.criterion(output.squeeze(1), to_predict)
             decoder_input = to_predict
+            hidden = hidden.detach()
 
         self.log('train/loss', loss.cpu().item())
         return loss
@@ -63,6 +65,3 @@ if __name__ == '__main__':
     model = LightningEngine(encoder, decoder, criterion=criterion, optimizer=optimizer)
     trainer = pl.Trainer(gpus=0)
     trainer.fit(model, data)
-
-    #tokens, att_mask = encoder.tokenize_batch(['МОлодая красивая девушка с востока. Натуральный цвет волос темный, в данном случае милированные. Милая улыбка, красивые темные глаза. Приблизительный возраст от двадцати до двадцати семи лет. Предположительно студентка гуманитарного факультета. '])
-    #print(encoder(tokens, att_mask)[0])
