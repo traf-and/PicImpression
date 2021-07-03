@@ -27,8 +27,8 @@ class LightningEngine(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         tokenized_text, att_mask = batch
-
-        hidden = self.text_encoder(tokenized_text, att_mask).unsqueeze(0)  # B, 1024
+        with torch.no_grad():
+            hidden = self.text_encoder(tokenized_text, att_mask).unsqueeze(0)  # B, 1024
         loss = torch.Tensor([0.0]).to(next(self.model.parameters()).device)
         decoder_input = torch.LongTensor([self.text_decoder.bos_token for _ in range(tokenized_text.shape[0])])
         decoder_input = decoder_input.to(next(self.model.parameters()).device)
