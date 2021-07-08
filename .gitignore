@@ -171,3 +171,5 @@ In_work/
 
 #model logs
 /lightning_logs
+/pl_ckpt
+/tb_logs
