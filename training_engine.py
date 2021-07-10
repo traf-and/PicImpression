@@ -54,7 +54,7 @@ class LightningEngine(pl.LightningModule):
         tokenized_text, att_mask = batch
         enc_out = self.text_encoder(tokenized_text, att_mask).unsqueeze(0)  # B, 1024
         loss = torch.Tensor([0.0]).to(next(self.text_decoder.parameters()).device)
-        decoder_input = torch.LongTensor([[self.tokenizer.bos_token_id] for _ in range(tokenized_text.shape[0])])
+        decoder_input = torch.LongTensor([self.tokenizer.bos_token_id for _ in range(tokenized_text.shape[0])])
         decoder_input = decoder_input.to(next(self.text_decoder.parameters()).device)
         decoder_input = decoder_input.unsqueeze(1)
         decoder_hidden = self.text_decoder.init_hidden(tokenized_text.shape[0])
