@@ -43,7 +43,7 @@ class AttnGRUTextDecoder(nn.Module):
         self.embedding_projection = nn.Linear(self.embedding_size, self.hidden_size)
         self.attn = nn.Linear(self.hidden_size * 2, self.max_length)
         self.attn_combine = nn.Linear(self.hidden_size * 2, self.hidden_size)
-        self.dropout = nn.Dropout(self.dropout_p)
+        self.dropout = nn.Dropout(self.dropout_proba)
         self.gru = nn.GRU(self.hidden_size, self.hidden_size)
         self.out = nn.Linear(self.hidden_size, self.output_size)
 

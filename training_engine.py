@@ -19,13 +19,14 @@ class LightningEngine(pl.LightningModule):
             text_encoder: RUGPTTextEncoder,
             text_decoder: GRUTextDecoder,
             criterion: torch.nn.Module,
+            tokenizer: GPT2Tokenizer,
             optimizer: optim
     ):
         super(LightningEngine, self).__init__()
         self.text_encoder = text_encoder
         self.text_decoder = text_decoder
         self.criterion = criterion
-
+        self.tokenizer = tokenizer
         self.optimizer = optimizer
 
     def training_step(self, batch, batch_idx):
@@ -33,7 +34,7 @@ class LightningEngine(pl.LightningModule):
         with torch.no_grad():
             hidden = self.text_encoder(tokenized_text, att_mask).unsqueeze(0)  # B, 1024
         loss = torch.Tensor([0.0]).to(next(self.text_decoder.parameters()).device)
-        decoder_input = torch.LongTensor([self.text_decoder.bos_token for _ in range(tokenized_text.shape[0])])
+        decoder_input = torch.LongTensor([self.tokenizer.bos_token_id for _ in range(tokenized_text.shape[0])])
         decoder_input = decoder_input.to(next(self.text_decoder.parameters()).device)
 
         for i in range(tokenized_text.shape[1]):
@@ -53,7 +54,7 @@ class LightningEngine(pl.LightningModule):
         with torch.no_grad():
             hidden = self.text_encoder(tokenized_text, att_mask).unsqueeze(0)  # B, 1024
             loss = torch.Tensor([0.0]).to(next(self.text_decoder.parameters()).device)
-            decoder_input = torch.LongTensor([self.text_decoder.bos_token for _ in range(tokenized_text.shape[0])])
+            decoder_input = torch.LongTensor([self.tokenizer.bos_token_id for _ in range(tokenized_text.shape[0])])
             decoder_input = decoder_input.to(next(self.text_decoder.parameters()).device)
             for i in range(tokenized_text.shape[1]):
                 to_predict = tokenized_text[:, i]
@@ -75,7 +76,7 @@ import sys
 if __name__ == '__main__':
     #for param in sys.argv:
     #    model_state = param
-    model_state = 'valid'
+    model_state = 'train'
     encoder = RUGPTTextEncoder(
         'sberbank-ai/rugpt3small_based_on_gpt2',
         eos_token_id=2,
@@ -99,8 +100,8 @@ if __name__ == '__main__':
 
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(decoder.parameters(), lr=1e-3)
-    #model = LightningEngine(encoder, decoder, criterion=criterion, optimizer=optimizer)
-    model = LightningEngine.load_from_checkpoint('pl_ckpt/epoch=21-step=73391.ckpt', text_encoder=encoder, text_decoder=decoder, criterion=criterion, optimizer=optimizer)
+    model = LightningEngine(encoder, decoder, criterion=criterion, tokenizer=encoder.tokenizer, optimizer=optimizer)
+    #model = LightningEngine.load_from_checkpoint('pl_ckpt/epoch=21-step=73391.ckpt', text_encoder=encoder, text_decoder=decoder, criterion=criterion, optimizer=optimizer)
     checkpoint_callback = ModelCheckpoint(dirpath='pl_ckpt/')
     logger = TensorBoardLogger("tb_logs/", name="my_model")
     trainer = pl.Trainer(gpus=1, callbacks=[checkpoint_callback], logger=logger)
