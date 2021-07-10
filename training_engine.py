@@ -34,14 +34,15 @@ class LightningEngine(pl.LightningModule):
         with torch.no_grad():
             enc_out = self.text_encoder(tokenized_text, att_mask).unsqueeze(0)  # B, 1024
         loss = torch.Tensor([0.0]).to(next(self.text_decoder.parameters()).device)
-        decoder_input = torch.LongTensor([[self.tokenizer.bos_token_id] for _ in range(tokenized_text.shape[0])])
+        decoder_input = torch.LongTensor([self.tokenizer.bos_token_id for _ in range(tokenized_text.shape[0])])
+        decoder_input = decoder_input.unsqueeze(1)
         decoder_input = decoder_input.to(next(self.text_decoder.parameters()).device)
         decoder_hidden = self.text_decoder.init_hidden(tokenized_text.shape[0])
         for i in range(tokenized_text.shape[1]):
             to_predict = tokenized_text[:, i]
             output, decoder_hidden = self.text_decoder(decoder_input, decoder_hidden, enc_out)
             loss += self.criterion(output.squeeze(1), to_predict)
-            decoder_input = to_predict
+            decoder_input = to_predict.unsqueeze(1)
             # decoder_hidden = decoder_hidden.detach()
 
         loss = loss / tokenized_text.shape[1]
@@ -55,12 +56,13 @@ class LightningEngine(pl.LightningModule):
         loss = torch.Tensor([0.0]).to(next(self.text_decoder.parameters()).device)
         decoder_input = torch.LongTensor([[self.tokenizer.bos_token_id] for _ in range(tokenized_text.shape[0])])
         decoder_input = decoder_input.to(next(self.text_decoder.parameters()).device)
+        decoder_input = decoder_input.unsqueeze(1)
         decoder_hidden = self.text_decoder.init_hidden(tokenized_text.shape[0])
         for i in range(tokenized_text.shape[1]):
             to_predict = tokenized_text[:, i]
             output, decoder_hidden = self.text_decoder(decoder_input, decoder_hidden, enc_out)
             loss += self.criterion(output.squeeze(1), to_predict)
-            decoder_input = to_predict
+            decoder_input = to_predict.unsqueeze(1)
             # decoder_hidden = decoder_hidden.detach()
 
         loss = loss / tokenized_text.shape[1]
