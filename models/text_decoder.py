@@ -8,7 +8,8 @@ class GRUTextDecoder(nn.Module):
             self,
             output_size: int,
             embedding_size: int = 1024,
-            hidden_size: int = 1024
+            hidden_size: int = 1024,
+            encoder_output_size: int = 1024,
     ):
         super(GRUTextDecoder, self).__init__()
         self.hidden_size = hidden_size
@@ -19,12 +20,29 @@ class GRUTextDecoder(nn.Module):
         self.softmax = nn.LogSoftmax(dim=1)
         self.activation = nn.LeakyReLU(0.2)
 
-    def forward(self, input: torch.Tensor, hidden: torch.Tensor):
-        output = self.embedding(input)
-        output = self.activation(output)
-        output, hidden = self.gru(output.unsqueeze(0), hidden)
-        output = self.out(output[0].unsqueeze(1))
-        return output, hidden
+        self.encoder_decoder_adaptor = nn.Linear(embedding_size + encoder_output_size, embedding_size)
+
+    def forward(
+            self,
+            input: torch.Tensor,
+            hidden: torch.Tensor,
+            encoder_output: torch.Tensor
+    ):
+        embedded = self.embedding(input)
+
+        attention_input = torch.cat([embedded, encoder_output], 2)
+
+        embedded = functional.softmax(
+            self.encoder_decoder_adaptor(attention_input), dim=1
+        )
+
+        embedded = self.activation(embedded)
+        embedded, hidden = self.gru(embedded.transpose(0, 1), hidden)
+        embedded = self.out(embedded[0].unsqueeze(1))
+        return embedded, hidden
+
+    def init_hidden(self, batch_size: int = 1):
+        return torch.zeros(1, batch_size, self.hidden_size, device=next(self.parameters()).device)
 
 
 class AttnGRUTextDecoder(nn.Module):
@@ -61,7 +79,7 @@ class AttnGRUTextDecoder(nn.Module):
         embedded = self.dropout(embedded)
         embedded = self.embedding_projection(embedded)
 
-        attention_input = torch.cat([embedded[0], hidden[0]], 1)
+        attention_input = torch.cat([embedded[0], hidden[0]], 2)
 
         attn_weights = functional.softmax(
             self.attn(attention_input), dim=1
@@ -80,3 +98,13 @@ class AttnGRUTextDecoder(nn.Module):
         output = functional.log_softmax(self.out(output[0]), dim=1)
 
         return output, hidden, attn_weights
+
+
+if __name__ == '__main__':
+    model = GRUTextDecoder(output_size=1024)
+    hidden = model.init_hidden(2)
+    e_out = torch.randn((2, 1, 1024))
+    tokenized_text = torch.LongTensor([[0], [3]])
+
+    d_out, hidden = model(tokenized_text, hidden, e_out)
+    d_out, hidden = model(tokenized_text, hidden, e_out)

@@ -32,17 +32,17 @@ class LightningEngine(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         tokenized_text, att_mask = batch
         with torch.no_grad():
-            hidden = self.text_encoder(tokenized_text, att_mask).unsqueeze(0)  # B, 1024
+            enc_out = self.text_encoder(tokenized_text, att_mask).unsqueeze(0)  # B, 1024
         loss = torch.Tensor([0.0]).to(next(self.text_decoder.parameters()).device)
         decoder_input = torch.LongTensor([self.tokenizer.bos_token_id for _ in range(tokenized_text.shape[0])])
         decoder_input = decoder_input.to(next(self.text_decoder.parameters()).device)
-
+        decoder_hidden = self.text_decoder.init_hidden(tokenized_text.shape[0])
         for i in range(tokenized_text.shape[1]):
             to_predict = tokenized_text[:, i]
-            output, hidden = self.text_decoder(decoder_input, hidden)
+            output, decoder_hidden = self.text_decoder(decoder_input, decoder_hidden, enc_out)
             loss += self.criterion(output.squeeze(1), to_predict)
             decoder_input = to_predict
-            hidden = hidden.detach()
+            # decoder_hidden = decoder_hidden.detach()
 
         loss = loss / tokenized_text.shape[1]
 
@@ -51,21 +51,21 @@ class LightningEngine(pl.LightningModule):
     
     def validation_step(self, batch, batch_idx):
         tokenized_text, att_mask = batch
-        with torch.no_grad():
-            hidden = self.text_encoder(tokenized_text, att_mask).unsqueeze(0)  # B, 1024
-            loss = torch.Tensor([0.0]).to(next(self.text_decoder.parameters()).device)
-            decoder_input = torch.LongTensor([self.tokenizer.bos_token_id for _ in range(tokenized_text.shape[0])])
-            decoder_input = decoder_input.to(next(self.text_decoder.parameters()).device)
-            for i in range(tokenized_text.shape[1]):
-                to_predict = tokenized_text[:, i]
-                output, hidden = self.text_decoder(decoder_input, hidden)
-                loss += self.criterion(output.squeeze(1), to_predict)
-                decoder_input = to_predict
-                hidden = hidden.detach()
+        enc_out = self.text_encoder(tokenized_text, att_mask).unsqueeze(0)  # B, 1024
+        loss = torch.Tensor([0.0]).to(next(self.text_decoder.parameters()).device)
+        decoder_input = torch.LongTensor([self.tokenizer.bos_token_id for _ in range(tokenized_text.shape[0])])
+        decoder_input = decoder_input.to(next(self.text_decoder.parameters()).device)
+        decoder_hidden = self.text_decoder.init_hidden(tokenized_text.shape[0])
+        for i in range(tokenized_text.shape[1]):
+            to_predict = tokenized_text[:, i]
+            output, decoder_hidden = self.text_decoder(decoder_input, decoder_hidden, enc_out)
+            loss += self.criterion(output.squeeze(1), to_predict)
+            decoder_input = to_predict
+            # decoder_hidden = decoder_hidden.detach()
 
         loss = loss / tokenized_text.shape[1]
 
-        self.log('validate/loss', loss.cpu().item())
+        self.log('valid/loss', loss.cpu().item())
         return loss
 
     def configure_optimizers(self):
@@ -95,6 +95,7 @@ if __name__ == '__main__':
     decoder = GRUTextDecoder(
         hidden_size=1024,
         embedding_size=1024,
+        encoder_output_size=1024,
         output_size=len(encoder.tokenizer)
     )
 
