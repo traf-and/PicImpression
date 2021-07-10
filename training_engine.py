@@ -92,7 +92,7 @@ if __name__ == '__main__':
     val_data_set = Text_Dataset(encoder.tokenizer, val_path)
     val_dataloaders = DataLoader(val_data_set, batch_size=400, num_workers=8, pin_memory=True, collate_fn=data_set.collate_fn)
     
-    decoder = AttnGRUTextDecoder(
+    decoder = GRUTextDecoder(
         hidden_size=1024,
         embedding_size=1024,
         output_size=len(encoder.tokenizer)

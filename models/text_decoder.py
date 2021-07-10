@@ -4,12 +4,16 @@ import torch.nn.functional as functional
 
 
 class GRUTextDecoder(nn.Module):
-    def __init__(self, embedding_size: int = 256, hidden_size: int = 1024, output_size: int = 256):
+    def __init__(
+            self,
+            output_size: int,
+            embedding_size: int = 1024,
+            hidden_size: int = 1024
+    ):
         super(GRUTextDecoder, self).__init__()
         self.hidden_size = hidden_size
 
-        self.bos_token = output_size + 1
-        self.embedding = nn.Embedding(output_size + 2, embedding_size)
+        self.embedding = nn.Embedding(output_size, embedding_size)
         self.gru = nn.GRU(embedding_size, hidden_size)
         self.out = nn.Linear(hidden_size, output_size)
         self.softmax = nn.LogSoftmax(dim=1)
