@@ -9,7 +9,7 @@ import torch.optim as optim
 from torch.utils.data import dataset, DataLoader
 from transformers import GPT2Tokenizer
 from transformers.utils.dummy_pt_objects import MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING 
-from models.text_decoder import GRUTextDecoder
+from models.text_decoder import GRUTextDecoder, AttnGRUTextDecoder
 from models.text_encoder import RUGPTTextEncoder
 from models.dataset_create.text_data import Text_Dataset
 
@@ -35,12 +35,15 @@ class LightningEngine(pl.LightningModule):
         loss = torch.Tensor([0.0]).to(next(self.text_decoder.parameters()).device)
         decoder_input = torch.LongTensor([self.text_decoder.bos_token for _ in range(tokenized_text.shape[0])])
         decoder_input = decoder_input.to(next(self.text_decoder.parameters()).device)
+
         for i in range(tokenized_text.shape[1]):
             to_predict = tokenized_text[:, i]
             output, hidden = self.text_decoder(decoder_input, hidden)
             loss += self.criterion(output.squeeze(1), to_predict)
             decoder_input = to_predict
             hidden = hidden.detach()
+
+        loss = loss / tokenized_text.shape[1]
 
         self.log('train/loss', loss.cpu().item())
         return loss
@@ -58,6 +61,9 @@ class LightningEngine(pl.LightningModule):
                 loss += self.criterion(output.squeeze(1), to_predict)
                 decoder_input = to_predict
                 hidden = hidden.detach()
+
+        loss = loss / tokenized_text.shape[1]
+
         self.log('validate/loss', loss.cpu().item())
         return loss
 
@@ -85,7 +91,12 @@ if __name__ == '__main__':
     val_data_set = Text_Dataset(encoder.tokenizer, val_path)
     val_dataloaders = DataLoader(val_data_set, batch_size=400, num_workers=8, pin_memory=True, collate_fn=data_set.collate_fn)
     
-    decoder = GRUTextDecoder(output_size=len(encoder.tokenizer))
+    decoder = AttnGRUTextDecoder(
+        hidden_size=1024,
+        embedding_size=1024,
+        output_size=len(encoder.tokenizer)
+    )
+
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(decoder.parameters(), lr=1e-3)
     #model = LightningEngine(encoder, decoder, criterion=criterion, optimizer=optimizer)
