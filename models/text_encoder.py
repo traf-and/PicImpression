@@ -13,9 +13,10 @@ def get_text_batch(
         lines: tp.List[str],
         tokenizer: GPT2Tokenizer,
         max_seq_length: int,
-        use_cpu: bool = False
+        device: str = 'cpu'
 ) -> tp.Tuple[torch.Tensor, torch.Tensor]:
     texts = []
+    #print(lines)
     for text in lines:
         text = tokenizer(
             prc_text(text),
@@ -35,7 +36,6 @@ def get_text_batch(
         text["attention_mask"][pos] = 1
         texts.append(text)
     input_ids = torch.LongTensor([x["input_ids"] for x in texts]).long()
-    device = input_ids.device if use_cpu else torch.cuda.current_device()
     input_ids = input_ids.to(device)
     attention_mask = torch.LongTensor([x["attention_mask"] for x in texts]).long().to(device)
     return input_ids, attention_mask
@@ -105,8 +105,9 @@ if __name__ == '__main__':
         d_in=768,
         d_out=1024
     ).cpu()
-    sd = torch.load('text_encoder.ckpt')
+    sd = torch.load('/home/artem/proj/PictureToText/In_work/text_encoder.ckpt')
     encoder.load_state_dict(sd)
 
-    tokens, att_mask = encoder.tokenize_batch(['кек'])
+    tokens, att_mask = encoder.tokenize_batch(['МОлодая красивая девушка с востока. Натуральный цвет волос темный, в данном случае милированные. Милая улыбка, красивые темные глаза. Приблизительный возраст от двадцати до двадцати семи лет. Предположительно студентка гуманитарного факультета. '])
     print(encoder(tokens, att_mask)[0])
+    #print(encoder.tokenizer)

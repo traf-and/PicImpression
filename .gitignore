@@ -161,4 +161,15 @@ env/
 
 # work folder
 In_work/
+
+#vscode directory
+.vscode/
 /checkpoints/
+
+#decoder pretrain DataSet
+/Pretrain_DS
+
+#model logs
+/lightning_logs
+/pl_ckpt
+/tb_logs
